@@ -359,22 +359,28 @@ export default function WheelApp({
     let currentFixedTicket = null
 
     // STEP 1: Determine Mode - Get next ticket from queue
+    console.log('🎡 Spin started. Current queue:', currentQueue, 'Queue length:', currentQueue.length)
+    
     if (currentQueue.length > 0) {
+      // CRITICAL: Create a copy before shifting to avoid mutation issues
+      const queueCopy = [...currentQueue]
       // Consume first ticket from queue
-      currentFixedTicket = currentQueue.shift() || null
-      fixedTicketsQueueRef.current = currentQueue // Update ref with remaining queue
+      currentFixedTicket = queueCopy.shift() || null
+      fixedTicketsQueueRef.current = queueCopy // Update ref with remaining queue
       spinCountRef.current += 1
       
-      console.log('Fixed spin mode:', {
+      console.log('✅ Fixed spin mode activated:', {
         ticket: currentFixedTicket,
-        remainingInQueue: currentQueue.length,
-        spinCount: spinCountRef.current
+        remainingInQueue: queueCopy.length,
+        spinCount: spinCountRef.current,
+        fullQueueBefore: currentQueue,
+        queueAfter: queueCopy
       })
     } else {
       // Queue empty → natural spin
       currentFixedTicket = null
       spinCountRef.current += 1
-      console.log('Natural spin mode (queue empty), spin count:', spinCountRef.current)
+      console.log('🎲 Natural spin mode (queue empty), spin count:', spinCountRef.current)
     }
 
     // STEP 2: Compute Rotation

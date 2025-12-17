@@ -16,6 +16,7 @@ export default function AdminPanel() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [fixedTicketsQueue, setFixedTicketsQueue] = useState<string[]>([]) // NEW: Queue of up to 3 tickets
   const [searchTerm, setSearchTerm] = useState('')
+  const [dataReady, setDataReady] = useState(false) // CRITICAL: Track if data is ready for selection
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -26,18 +27,50 @@ export default function AdminPanel() {
 
   const loadData = async () => {
     try {
+      console.log('Loading data from API...')
+      setDataReady(false) // CRITICAL: Mark data as not ready
+      setLoading(true)
+      
       const response = await fetch('/api/admin/list')
       if (response.status === 401) {
         router.push('/admin/login')
         return
       }
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      }
+      
       const data = await response.json()
+      console.log('Data received from API:', {
+        entryCount: data.entries?.length || 0,
+        fixedTicketsQueue: data.fixedTicketsQueue || [],
+        hasEntries: !!data.entries && data.entries.length > 0
+      })
+      
+      // CRITICAL: Validate data structure before setting
+      if (!data.entries || !Array.isArray(data.entries)) {
+        console.error('Invalid data structure received:', data)
+        setUploadError('Invalid data received from server')
+        setLoading(false)
+        setDataReady(false)
+        return
+      }
+      
+      // Set entries and queue
       setEntries(data.entries || [])
       setFixedTicketsQueue(data.fixedTicketsQueue || []) // NEW: Queue
+      
+      // CRITICAL: Mark data as ready only after successful load
+      setDataReady(true)
       setLoading(false)
+      
+      console.log('Data loaded successfully. Entries ready:', data.entries.length)
     } catch (error) {
       console.error('Failed to load data:', error)
+      setUploadError(`Failed to load data: ${error instanceof Error ? error.message : 'Unknown error'}`)
       setLoading(false)
+      setDataReady(false)
     }
   }
 
@@ -56,9 +89,11 @@ export default function AdminPanel() {
       return
     }
 
+    console.log('Excel file upload started:', selectedFiles.map(f => f.name))
     setUploading(true)
     setUploadError(null)
     setUploadSuccess(false)
+    setDataReady(false) // CRITICAL: Mark data as not ready during upload
 
     try {
       const formData = new FormData()
@@ -66,32 +101,50 @@ export default function AdminPanel() {
         formData.append('files', file)
       })
 
+      console.log('Sending upload request...')
       const response = await fetch('/api/admin/upload', {
         method: 'POST',
         body: formData,
       })
 
       const data = await response.json()
+      console.log('Upload response:', data)
 
       if (!response.ok) {
-        setUploadError(data.error || 'Upload failed')
+        const errorMsg = data.error || 'Upload failed'
+        console.error('Upload failed:', errorMsg)
+        setUploadError(errorMsg)
         setUploading(false)
+        setDataReady(false)
         return
       }
 
+      // Validate response data
+      if (!data.success) {
+        throw new Error(data.error || 'Upload failed')
+      }
+
+      console.log('Upload successful. Total entries:', data.totalEntries)
+      
       setUploadSuccess(true)
       setSelectedFiles([])
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
       }
 
-      // Reload data (draft state updated)
+      // CRITICAL: Reload data and wait for it to complete
+      console.log('Reloading data after upload...')
       await loadData()
+      
+      // CRITICAL: Wait a bit more to ensure data is fully ready
+      await new Promise(resolve => setTimeout(resolve, 100))
 
       // Show success message for 3 seconds
       setTimeout(() => setUploadSuccess(false), 3000)
     } catch (error) {
-      setUploadError('Network error. Please try again.')
+      console.error('Upload error:', error)
+      setUploadError(`Network error: ${error instanceof Error ? error.message : 'Please try again.'}`)
+      setDataReady(false)
     } finally {
       setUploading(false)
     }
@@ -116,6 +169,19 @@ export default function AdminPanel() {
 
   // Update fixed tickets queue (up to 3 tickets in order)
   const handleFixedTicketsQueueChange = async (tickets: string[]) => {
+    console.log('handleFixedTicketsQueueChange called:', {
+      tickets,
+      currentEntries: entries.length,
+      dataReady
+    })
+    
+    // CRITICAL: Validate data is ready
+    if (!dataReady || !entries || entries.length === 0) {
+      console.warn('Cannot update queue: data not ready')
+      alert('Please wait for data to load before setting fixed tickets.')
+      return
+    }
+    
     // Validate: max 3 tickets
     if (tickets.length > 3) {
       alert('Maximum 3 fixed tickets allowed')
@@ -129,20 +195,26 @@ export default function AdminPanel() {
       return
     }
 
-    // Validate: all tickets exist in current entries
+    // CRITICAL: Validate all tickets exist in current entries with null checks
     for (const ticket of tickets) {
-      const exists = entries.some(e => e.ticketNumber === ticket)
+      const exists = entries.some(e => e && e.ticketNumber === ticket)
       if (!exists) {
-        alert(`Ticket "${ticket}" not found in current list`)
+        console.error('Ticket validation failed:', ticket, 'Available:', entries.map(e => e?.ticketNumber))
+        alert(`Ticket "${ticket}" not found in current list. Please refresh and try again.`)
+        // Reload data to sync
+        await loadData()
         return
       }
     }
 
+    console.log('Updating fixed tickets queue:', tickets)
+    
     // Update state optimistically
     setFixedTicketsQueue(tickets)
     
     // Update immediately via API
     try {
+      console.log('Saving fixed tickets queue to API...')
       const response = await fetch('/api/admin/fixed-ticket', {
         method: 'POST',
         headers: {
@@ -151,26 +223,47 @@ export default function AdminPanel() {
         body: JSON.stringify({ tickets }),
       })
 
+      const responseData = await response.json()
+      console.log('API response:', responseData)
+
       if (!response.ok) {
-        const data = await response.json()
-        console.error('Failed to set fixed tickets queue:', data.error)
-        alert(`Failed to set fixed tickets: ${data.error}`)
+        const errorMsg = responseData.error || 'Failed to save fixed tickets'
+        console.error('Failed to set fixed tickets queue:', errorMsg)
+        alert(`Failed to set fixed tickets: ${errorMsg}`)
         // Revert on error - reload from server
-        loadData()
+        await loadData()
       } else {
-        console.log('Fixed tickets queue updated successfully:', tickets)
+        console.log('✅ Fixed tickets queue saved successfully:', tickets)
+        // Show visual feedback
+        if (tickets.length > 0) {
+          console.log(`✅ ${tickets.length} ticket(s) fixed. Settings saved and will apply on next spin.`)
+        }
       }
     } catch (error) {
       console.error('Error setting fixed tickets queue:', error)
-      alert('Network error. Please try again.')
+      alert(`Network error: ${error instanceof Error ? error.message : 'Please try again.'}`)
       // Revert on error - reload from server
-      loadData()
+      await loadData()
     }
   }
 
   // Add ticket to queue
   const addTicketToQueue = (ticketNumber: string) => {
     try {
+      console.log('Adding ticket to queue:', {
+        ticketNumber,
+        currentQueue: fixedTicketsQueue,
+        entriesAvailable: entries.length,
+        dataReady
+      })
+      
+      // CRITICAL: Check if data is ready
+      if (!dataReady || !entries || entries.length === 0) {
+        alert('Please wait for data to load before selecting tickets.')
+        console.warn('Attempted to add ticket before data is ready')
+        return
+      }
+      
       if (fixedTicketsQueue.length >= 3) {
         alert('Maximum 3 fixed tickets allowed')
         return
@@ -179,13 +272,18 @@ export default function AdminPanel() {
         alert('Ticket already in queue')
         return
       }
-      // Validate ticket exists
-      const entry = entries.find(e => e.ticketNumber === ticketNumber)
+      
+      // CRITICAL: Validate ticket exists with null check
+      const entry = entries.find(e => e && e.ticketNumber === ticketNumber)
       if (!entry) {
-        alert(`Ticket "${ticketNumber}" not found in current list`)
+        console.error('Ticket not found:', ticketNumber, 'Available tickets:', entries.map(e => e?.ticketNumber))
+        alert(`Ticket "${ticketNumber}" not found in current list. Please wait for data to load.`)
         return
       }
-      handleFixedTicketsQueueChange([...fixedTicketsQueue, ticketNumber])
+      
+      const newQueue = [...fixedTicketsQueue, ticketNumber]
+      console.log('Updating queue to:', newQueue)
+      handleFixedTicketsQueueChange(newQueue)
     } catch (error) {
       console.error('Error adding ticket to queue:', error)
       alert('Failed to add ticket to queue. Please try again.')
@@ -239,7 +337,8 @@ export default function AdminPanel() {
         background: 'linear-gradient(135deg, #2b0505 0%, #233159 60%, #05051a 100%)',
         color: 'white'
       }}>
-        <div>Loading admin panel...</div>
+        <div style={{ fontSize: '18px', marginBottom: '10px' }}>Loading admin panel...</div>
+        {uploading && <div style={{ fontSize: '14px', color: '#aaa' }}>Processing Excel file...</div>}
       </div>
     )
   }
@@ -513,7 +612,12 @@ export default function AdminPanel() {
                   • 1st spin stops on ticket #1<br/>
                   • 2nd spin stops on ticket #2<br/>
                   • 3rd spin stops on ticket #3<br/>
-                  • After queue is empty → natural spins
+                  • After queue is empty → natural spins<br/>
+                  {!dataReady && (
+                    <span style={{ color: '#ffa500', fontWeight: 'bold', display: 'block', marginTop: '8px' }}>
+                      ⚠️ Please wait for data to finish loading before selecting tickets
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -524,6 +628,16 @@ export default function AdminPanel() {
         <div>
           <h2 style={{ fontSize: '18px', marginBottom: '15px' }}>
             Data Preview ({entries.length} entries)
+            {!dataReady && entries.length > 0 && (
+              <span style={{ fontSize: '12px', color: '#ffa500', marginLeft: '10px' }}>
+                ⚠️ Loading...
+              </span>
+            )}
+            {dataReady && (
+              <span style={{ fontSize: '12px', color: '#4ade80', marginLeft: '10px' }}>
+                ✅ Ready
+              </span>
+            )}
           </h2>
           <input
             type="text"
@@ -565,15 +679,23 @@ export default function AdminPanel() {
                   style={{
                     padding: '10px',
                     marginBottom: '8px',
-                    background: '#2a2a2a',
+                    background: fixedTicketsQueue.includes(entry.ticketNumber) ? '#1a3a2a' : '#2a2a2a',
                     borderRadius: '4px',
                     fontSize: '14px',
-                    cursor: spinMode === 'fixed' ? 'pointer' : 'default',
-                    border: fixedTicketsQueue.includes(entry.ticketNumber) ? '2px solid #2563eb' : '1px solid transparent'
+                    cursor: (spinMode === 'fixed' && dataReady) ? 'pointer' : 'default',
+                    border: fixedTicketsQueue.includes(entry.ticketNumber) ? '2px solid #4ade80' : '1px solid transparent',
+                    opacity: (!dataReady && spinMode === 'fixed') ? 0.5 : 1,
+                    transition: 'all 0.2s'
                   }}
                   onClick={() => {
                     if (spinMode === 'fixed') {
+                      // CRITICAL: Check if data is ready before allowing selection
+                      if (!dataReady || !entries || entries.length === 0) {
+                        alert('Please wait for data to finish loading before selecting tickets.')
+                        return
+                      }
                       // When clicking an entry, add to queue (up to 3)
+                      console.log('Entry clicked:', entry.ticketNumber, entry.firstName, entry.lastName)
                       addTicketToQueue(entry.ticketNumber)
                     }
                   }}

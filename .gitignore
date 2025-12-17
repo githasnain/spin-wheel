@@ -1,38 +1,79 @@
-# dependencies
-/node_modules
+# Dependencies
+node_modules/
 /.pnp
 .pnp.js
+# Keep package-lock.json for consistent installs
 
-# testing
-/coverage
+# Testing
+coverage/
+.nyc_output/
+*.test.js
+*.test.ts
+*.test.tsx
+__tests__/
+test/
 
-# next.js
+# Next.js
 /.next/
 /out/
+.next/
+out/
 
-# production
+# Production builds
 /build
+/dist
+*.tsbuildinfo
 
-# misc
-.DS_Store
-*.pem
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env*.local
 
-# debug
+# Logs
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
 
-# local env files
-.env*.local
-.env
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*.swp
+*.swo
+*~
 
-# vercel
+# IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.code-workspace
+
+# Vercel
 .vercel
 
-# typescript
-*.tsbuildinfo
-next-env.d.ts
+# Cache
+.cache/
+.parcel-cache/
+.eslintcache
+.stylelintcache
 
-# Keep existing spin-wheel structure
-!spin-wheel/
+# Temporary files
+*.tmp
+*.temp
+.tmp/
+.temp/
+
+# Keep existing spin-wheel structure (if needed)
+# !spin-wheel/
 
