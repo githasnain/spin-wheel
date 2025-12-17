@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { isAuthenticated } from '@/lib/auth'
 import { publishSnapshot, getAdminDraftState, setAdminDraftSpinConfig } from '@/lib/storage'
 
+// Mark route as dynamic (uses cookies)
+export const dynamic = 'force-dynamic'
+
 /**
  * POST /api/admin/publish
  * 

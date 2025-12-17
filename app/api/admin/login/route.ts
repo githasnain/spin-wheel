@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifyAdminCredentials, createSession } from '@/lib/auth'
 import { cookies } from 'next/headers'
 
+// Mark route as dynamic (uses cookies)
+export const dynamic = 'force-dynamic'
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()

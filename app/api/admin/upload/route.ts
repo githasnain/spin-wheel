@@ -3,6 +3,9 @@ import { isAuthenticated } from '@/lib/auth'
 import { parseExcelFile, combineParticipants, Participant } from '@/lib/excel-parser'
 import { replaceWheelList } from '@/lib/wheel-storage'
 
+// Mark route as dynamic (uses cookies and file upload)
+export const dynamic = 'force-dynamic'
+
 export async function POST(request: NextRequest) {
   try {
     // Check authentication

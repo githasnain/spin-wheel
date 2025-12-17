@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
 import { getWheelListSnapshot } from '@/lib/wheel-storage'
 
+// Mark route as dynamic
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/wheel/list
  * 

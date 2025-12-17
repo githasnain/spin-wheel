@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server'
 import { isAuthenticated } from '@/lib/auth'
 import { getWheelListSnapshot } from '@/lib/wheel-storage'
 
+// Mark route as dynamic (uses cookies)
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/admin/list
  * 

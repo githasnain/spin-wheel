@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getLatestSnapshot } from '@/lib/storage'
 
+// Mark route as dynamic (uses request.url)
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/wheel/snapshot
  * GET /api/wheel/entries (legacy compatibility)
