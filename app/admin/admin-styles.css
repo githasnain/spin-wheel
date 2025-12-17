@@ -1,0 +1,76 @@
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.admin-shake {
+  animation: shake 0.5s ease;
+}
+
+.admin-spin {
+  animation: spin 1s linear infinite;
+}
+
+.admin-fade-in {
+  animation: fadeIn 0.5s ease;
+}
+
+/* CRITICAL UX FIXES: Cursor Positioning & Text Overflow */
+
+/* Fix cursor positioning - ensure inputs don't have transforms */
+.admin-panel input[type="text"],
+.admin-panel input[type="email"],
+.admin-panel input[type="search"],
+.admin-panel textarea {
+  position: relative !important;
+  transform: none !important;
+  caret-color: white;
+  box-sizing: border-box;
+  font-family: inherit;
+  line-height: 1.5;
+}
+
+.admin-panel input:focus,
+.admin-panel textarea:focus {
+  transform: none !important;
+  position: relative !important;
+}
+
+/* Text overflow handling */
+.admin-entry-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+  display: block;
+}
+
+.admin-entry-details {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+/* Responsive fixes */
+@media (max-width: 768px) {
+  .admin-panel input[type="text"],
+  .admin-panel input[type="email"],
+  .admin-panel input[type="search"] {
+    font-size: 16px; /* Prevents zoom on iOS */
+    -webkit-appearance: none;
+    appearance: none;
+  }
+}
+

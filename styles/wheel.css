@@ -1,0 +1,3 @@
+/* Import existing wheel styles from spin-wheel */
+@import '../spin-wheel/src/App.css';
+
